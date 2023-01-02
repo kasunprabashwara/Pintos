@@ -15,6 +15,7 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
@@ -44,13 +45,20 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy); 
   return tid;
 }
-
 /* A thread function that loads a user process and starts it
    running. */
 static void
 start_process (void *file_name_)
 {
   char *file_name = file_name_;
+  printf("file_name= %s ",file_name);
+  char *duplicate_fn=palloc_get_page(0);
+  char *temp_save_ptr;
+  strlcpy(duplicate_fn,file_name,strlen(file_name)+1);
+  duplicate_fn=strtok_r(duplicate_fn," ",&temp_save_ptr);
+  printf("file_name= %s ",file_name);
+  printf("duplicate_fn= %s ",duplicate_fn);
+
   struct intr_frame if_;
   bool success;
 
@@ -59,13 +67,46 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
-
+  printf("test1");
+  // create a duplicate of file_name to pass to load
+  success = load (duplicate_fn, &if_.eip, &if_.esp);
   /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
+  if (!success){
     thread_exit ();
-
+  }
+  else{
+    char* token;
+    char* save_ptr;
+    int argc=0;
+    char* argv[20];
+    printf("%s file_name",file_name);
+    for(token=strtok_r(file_name," ",&save_ptr);token!=NULL;token=strtok_r(NULL," ",&save_ptr)){
+      argv[argc]=token;
+      printf("%s token",token);
+      argc++;
+    }
+    for(int i=argc-1;i>=0;i--){
+      if_.esp-=strlen(argv[i])+1;
+      memcpy(if_.esp,argv[i],strlen(argv[i])+1);
+      argv[i]=if_.esp;
+    }
+    if_.esp=(int) if_.esp & 0xfffffffc;
+    printf("if_.esp= %d ",if_.esp);
+    if_.esp-=4;
+    *(int*)if_.esp=0;
+    for(int i=argc-1;i>=0;i--){
+      if_.esp-=4;
+      *(char**)if_.esp=argv[i];
+    }
+    if_.esp-=4;
+    *(char**)if_.esp=if_.esp+4;
+    if_.esp-=4;
+    *(int*)if_.esp=argc;
+    if_.esp-=4;
+    *(int*)if_.esp=0;
+    hex_dump(if_.esp,if_.esp,PHYS_BASE-if_.esp,true);
+  }
+  palloc_free_page (duplicate_fn);
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -88,7 +129,9 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  for(;true;);
+  while(true){
+    thread_yield();
+  }
   return -1;
 }
 
@@ -438,7 +481,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE-12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
