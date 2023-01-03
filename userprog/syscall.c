@@ -8,17 +8,19 @@
 
 static void syscall_handler (struct intr_frame *);
 
-bool 
+void  
 check_valid_ptr(void* ptr){
+  if(ptr==NULL){
+    thread_exit();
+  }
   // check to if the pointer is in the user virtual address space
   if(!is_user_vaddr(ptr) || ptr<0x08048000){
-    return false;
+    thread_exit();
   }
   // check to see if the pointer is mapped to a page
   if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL){
-    return false;
+    thread_exit();
   }
-  return true;
 }
 
 void
@@ -41,7 +43,15 @@ syscall_handler(struct intr_frame* f){
       break;
     }
     case SYS_EXEC:{
-      
+      char* cmd_line = (char*)(*((int*)f->esp + 1));
+      check_valid_ptr(cmd_line);
+      tid_t tid = process_execute(cmd_line);
+      if(thread_current()->child_load_success){
+        f->eax = tid;
+      }
+      else{
+        f->eax = -1;
+      }
       break;
     }
     case SYS_WAIT:{
@@ -62,40 +72,16 @@ syscall_handler(struct intr_frame* f){
       f->eax = filesys_remove(filepath);
       break;
     }
-
     case SYS_OPEN:{
       printf("open");
-      char* file = *((int*)f->esp + 1);
-      struct thread *temp_thread = thread_current ();
+      struct thread *cur = thread_current ();
       struct fd_t *fd = malloc (sizeof (struct fd_t));
-        if (filesys_open (file, &fd->ptr, &fd->is_dir)) {
-          fd->num = temp_thread->next_fd_num++;
-          list_push_back (&temp_thread->fd_list, &fd->elem);
-          f->eax = fd->num;
-        }
-        else {
-          free (fd);
-          f->eax = -1;
-        }
+      
       break;
     }
 
     case SYS_FILESIZE:{
       printf("filesize");
-      int fd = *((int*)f->esp + 1);
-      struct thread *current_thread = thread_current ();
-      struct list_elem *e;
-      for (e = list_begin (&current_thread->fd_list); e != list_end (&current_thread->fd_list); e = list_next (e)) {
-      struct fd_t *fd = list_entry (e, struct fd_t, elem);
-      if (fd->num == fd)
-        {
-          if (!fd->is_dir)
-            f->eax = file_length ((struct file *) fd->ptr);
-          else
-            f->eax = -1;
-        }
-    }
-  return -1;
       break;
     }
 
@@ -109,10 +95,7 @@ syscall_handler(struct intr_frame* f){
       void* buffer = (void*)(*((int*)f->esp + 2));
       unsigned size = *((unsigned*)f->esp + 3);
       //check to see if the buffer is valid
-      if(!check_valid_ptr(buffer)){
-        thread_exit();
-      }
-    
+      check_valid_ptr(buffer);
       //run the syscall, a function of your own making
       //since this syscall returns a value, the return value should be stored in f->eax
       // f->eax = write(fd, buffer, size);
