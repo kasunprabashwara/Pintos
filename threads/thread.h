@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,7 +97,7 @@ struct child
     int exit_status;                    /* Exit status. */
     struct list_elem child_elem;              /* List element. */
     bool wait;                          /* Waited or not. */
-    struct semaphore sema               /* Semaphore for waiting. */
+    struct semaphore sema;               /* Semaphore for waiting. */
   };
 
 struct thread
@@ -119,6 +120,7 @@ struct thread
 #endif
 
     /* Owned by thread.c. */
+    bool child_load_success;                    /* Child load success or not. */
     unsigned magic;                     /* Detects stack overflow. */
     struct list children;               /* List of children. */
     struct thread* parent;              /* Parent thread. */

@@ -68,7 +68,7 @@ start_process (void *file_name_)
   success = load (duplicate_fn, &if_.eip, &if_.esp);
   /* If load failed, quit. */
   if (!success){
-    
+    thread_current()->parent->child_load_success=false;  
     thread_exit ();
   }
   else{
@@ -98,7 +98,7 @@ start_process (void *file_name_)
     *(int*)if_.esp=argc;
     if_.esp-=4;
     *(int*)if_.esp=0;
-    hex_dump(if_.esp,if_.esp,PHYS_BASE-if_.esp,true);
+    thread_current()->parent->child_load_success=true;
   }
   palloc_free_page (duplicate_fn);
   /* Start the user process by simulating a return from an
