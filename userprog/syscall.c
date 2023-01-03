@@ -19,6 +19,7 @@ syscall_handler(struct intr_frame* f){
   switch(*(int*)f->esp){
     case SYS_HALT:{
       printf("halt");
+      
       break;
     }
     case SYS_EXIT:{
@@ -35,15 +36,15 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_CREATE:{
       printf("create");
-      char* file = (void*)(*((int*)f->esp + 1));
+      char* file = *((int*)f->esp + 1);
       unsigned initial_size = *((unsigned*)f->esp + 2);
-      return filesys_create (file, initial_size);
+      f->eax = filesys_create (file, initial_size);
       break;
     }
     case SYS_REMOVE:{
       printf("remove");
-      char* file = (void*)(*((int*)f->esp + 1));
-      return filesys_remove(file);
+      char* file = *((int*)f->esp + 1);
+      f->eax = filesys_remove(file);
       break;
     }
     case SYS_OPEN:{
@@ -64,7 +65,7 @@ syscall_handler(struct intr_frame* f){
       unsigned size = *((unsigned*)f->esp + 3);
       //run the syscall, a function of your own making
       //since this syscall returns a value, the return value should be stored in f->eax
-      // f->eax = write(fd, buffer, size);
+      f->eax = file_write(fd, buffer, size);
       printf("write");
       break;
     }
