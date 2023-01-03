@@ -57,12 +57,15 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_REMOVE:{
       printf("remove");
-      char* file = *((int*)f->esp + 1);
-      f->eax = filesys_remove(file);
+      char* filepath = *((int*)f->esp + 1);
+      f->eax = filesys_remove(filepath);
       break;
     }
     case SYS_OPEN:{
       printf("open");
+      struct thread *cur = thread_current ();
+      struct fd_t *fd = malloc (sizeof (struct fd_t));
+      
       break;
     }
     case SYS_FILESIZE:{

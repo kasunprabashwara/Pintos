@@ -24,6 +24,14 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+struct fd_t
+  {
+    int num;
+    struct list_elem elem;
+    void *ptr;
+  };
+
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
