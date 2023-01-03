@@ -28,6 +28,7 @@ struct fd_t
   {
     int num;
     struct list_elem elem;
+    bool is_dir;
     void *ptr;
   };
 
@@ -107,7 +108,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-
+    struct list fd_list;
+    unsigned next_fd_num;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -118,7 +120,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    struct list children;                    /* List of children. */
+    struct list children;               /* List of children. */
     struct thread* parent;              /* Parent thread. */
     struct semaphore sema;              /* Semaphore for waiting. */
   };

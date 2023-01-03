@@ -61,15 +61,40 @@ syscall_handler(struct intr_frame* f){
       f->eax = filesys_remove(filepath);
       break;
     }
+
     case SYS_OPEN:{
       printf("open");
-      struct thread *cur = thread_current ();
+      char* file = *((int*)f->esp + 1);
+      struct thread *temp_thread = thread_current ();
       struct fd_t *fd = malloc (sizeof (struct fd_t));
-      
+        if (filesys_open (file, &fd->ptr, &fd->is_dir)) {
+          fd->num = temp_thread->next_fd_num++;
+          list_push_back (&temp_thread->fd_list, &fd->elem);
+          f->eax = fd->num;
+        }
+        else {
+          free (fd);
+          f->eax = -1;
+        }
       break;
     }
+
     case SYS_FILESIZE:{
       printf("filesize");
+      int fd = *((int*)f->esp + 1);
+      struct thread *current_thread = thread_current ();
+      struct list_elem *e;
+      for (e = list_begin (&current_thread->fd_list); e != list_end (&current_thread->fd_list); e = list_next (e)) {
+      struct fd_t *fd = list_entry (e, struct fd_t, elem);
+      if (fd->num == fd)
+        {
+          if (!fd->is_dir)
+            f->eax = file_length ((struct file *) fd->ptr);
+          else
+            f->eax = -1;
+        }
+    }
+  return -1;
       break;
     }
     case SYS_READ:{
