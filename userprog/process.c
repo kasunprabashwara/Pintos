@@ -68,6 +68,7 @@ start_process (void *file_name_)
   success = load (duplicate_fn, &if_.eip, &if_.esp);
   /* If load failed, quit. */
   if (!success){
+    
     thread_exit ();
   }
   else{

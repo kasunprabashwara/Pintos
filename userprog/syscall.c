@@ -3,10 +3,23 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "filesys/file.h"
-#include "filesys/filesys.h"
+#include "threads/vaddr.h"
+#include "pagedir.h"
 
 static void syscall_handler (struct intr_frame *);
+
+bool 
+check_valid_ptr(void* ptr){
+  // check to if the pointer is in the user virtual address space
+  if(!is_user_vaddr(ptr) || ptr<0x08048000){
+    return false;
+  }
+  // check to see if the pointer is mapped to a page
+  if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL){
+    return false;
+  }
+  return true;
+}
 
 void
 syscall_init (void) 
@@ -23,11 +36,12 @@ syscall_handler(struct intr_frame* f){
       break;
     }
     case SYS_EXIT:{
-      printf("exit");
+      // free the thread's resources(iterate through the lists and free them)
+      thread_exit();
       break;
     }
     case SYS_EXEC:{
-      printf("exec");
+      
       break;
     }
     case SYS_WAIT:{
@@ -63,9 +77,19 @@ syscall_handler(struct intr_frame* f){
       int fd = *((int*)f->esp + 1);
       void* buffer = (void*)(*((int*)f->esp + 2));
       unsigned size = *((unsigned*)f->esp + 3);
+      //check to see if the buffer is valid
+      if(!check_valid_ptr(buffer)){
+        thread_exit();
+      }
+    
       //run the syscall, a function of your own making
       //since this syscall returns a value, the return value should be stored in f->eax
-      f->eax = file_write(fd, buffer, size);
+      // f->eax = write(fd, buffer, size);
+      if(fd==1){
+        putbuf(buffer, size);
+        f->eax=size;
+        break;
+      }
       printf("write");
       break;
     }
