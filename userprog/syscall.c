@@ -35,11 +35,12 @@ syscall_handler(struct intr_frame* f){
       break;
     }
     case SYS_EXIT:{
+      // free the thread's resources(iterate through the lists and free them)
       thread_exit();
       break;
     }
     case SYS_EXEC:{
-      printf("exec");
+      
       break;
     }
     case SYS_WAIT:{
@@ -47,11 +48,14 @@ syscall_handler(struct intr_frame* f){
       break;
     }
     case SYS_CREATE:{
-      printf("create");
+      char* file = (void*)(*((int*)f->esp + 1));
+      unsigned initial_size = *((unsigned*)f->esp + 2);
+      return filesys_create (file, initial_size);
       break;
     }
     case SYS_REMOVE:{
-      printf("remove");
+      char* file = (void*)(*((int*)f->esp + 1));
+      return filesys_remove(file);
       break;
     }
     case SYS_OPEN:{

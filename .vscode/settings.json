@@ -1,5 +1,20 @@
 {
-    "files.associations": {
-        "inttypes.h": "c"
-    }
+  "files.associations": {
+    "inttypes.h": "c",
+    "stdio.h": "c",
+    "string.h": "c",
+    "stdlib.h": "c",
+    "*.tcc": "c",
+    "exception": "c",
+    "fstream": "c",
+    "iosfwd": "c",
+    "new": "c",
+    "ostream": "c",
+    "sstream": "c",
+    "streambuf": "c",
+    "*.inc": "c",
+    "syscall-nr.h": "c",
+    "vaddr.h": "c",
+    "pagedir.h": "c"
+  }
 }

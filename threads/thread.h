@@ -110,7 +110,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    struct list chi;                    /* List of children. */
+    struct list children;                    /* List of children. */
     struct thread* parent;              /* Parent thread. */
     struct semaphore sema;              /* Semaphore for waiting. */
   };
