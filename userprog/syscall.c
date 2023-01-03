@@ -3,6 +3,8 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -33,10 +35,15 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_CREATE:{
       printf("create");
+      char* file = (void*)(*((int*)f->esp + 1));
+      unsigned initial_size = *((unsigned*)f->esp + 2);
+      return filesys_create (file, initial_size);
       break;
     }
     case SYS_REMOVE:{
       printf("remove");
+      char* file = (void*)(*((int*)f->esp + 1));
+      return filesys_remove(file);
       break;
     }
     case SYS_OPEN:{
