@@ -54,6 +54,7 @@ syscall_handler(struct intr_frame* f){
       unsigned initial_size = *((unsigned*)f->esp + 2);
       f->eax = filesys_create (file, initial_size);
       break;
+
     }
     case SYS_REMOVE:{
       printf("remove");
@@ -78,7 +79,7 @@ syscall_handler(struct intr_frame* f){
         }
       break;
     }
-// Test Comment
+
     case SYS_FILESIZE:{
       printf("filesize");
       int fd = *((int*)f->esp + 1);
@@ -97,10 +98,12 @@ syscall_handler(struct intr_frame* f){
   return -1;
       break;
     }
+
     case SYS_READ:{
       printf("read");
       break;
     }
+    
     case SYS_WRITE:{
       int fd = *((int*)f->esp + 1);
       void* buffer = (void*)(*((int*)f->esp + 2));
