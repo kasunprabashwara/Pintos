@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -183,6 +184,13 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   sema_init (&t->sema, 0);    /* Initialize semaphore. */
+  t->parent = thread_current ();  /* Initialize parent. */
+  list_init(&t->children);   /* Initialize children list. */
+  struct child* temp_child=malloc(sizeof(struct child));  /* Initialize temp child. */
+  temp_child->tid=t->tid;   /* Set temp child's tid. */
+  temp_child->sema=t->sema;  /* Set temp child's semaphore. */
+  list_insert(&t->parent->children, &temp_child->child_elem);  /* Add to parent's children list. */
+  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
