@@ -1,30 +1,42 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/malloc.h"
 #include "threads/vaddr.h"
 #include "pagedir.h"
+#include "filesys/filesys.h"
 #include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
+static void check_valid_ptr(void* ptr);
+static void thread_force_exit(void);
+
 struct lock syscall_lock;
 
 void  
 check_valid_ptr(void* ptr){
   if(ptr==NULL){
-    thread_exit();
+    thread_force_exit();
   }
   // check to if the pointer is in the user virtual address space
   if(!is_user_vaddr(ptr) || ptr<0x08048000){
-    thread_exit();
+    thread_force_exit();
   }
   // check to see if the pointer is mapped to a page
   if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL){
-    thread_exit();
+    thread_force_exit();
   }
 }
-
+void
+thread_force_exit(void){
+  thread_current()->exit_status = -1;
+  struct child* child=list_entry(&(thread_current()->child_elem), struct child, child_elem);
+  child->exit_status = -1;
+  thread_exit();
+}
 void
 syscall_init (void) 
 {
@@ -43,6 +55,12 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_EXIT:{
       // free the thread's resources(iterate through the lists and free them)
+      int status = (int)(*((int*)f->esp + 1));
+      thread_current()->exit_status = status;
+      struct child* child=list_entry(&(thread_current()->child_elem), struct child, child_elem);
+      child->exit_status = status;
+      list_remove(&thread_current()->child_elem);
+      free(child);
       thread_exit();
       break;
     }
@@ -50,6 +68,7 @@ syscall_handler(struct intr_frame* f){
       char* cmd_line = (char*)(*((int*)f->esp + 1));
       check_valid_ptr(cmd_line);
       tid_t tid = process_execute(cmd_line);
+      sema_down(&thread_current()->sema); // wait for child to load
       if(thread_current()->child_load_success){
         f->eax = tid;
       }
@@ -59,20 +78,21 @@ syscall_handler(struct intr_frame* f){
       break;
     }
     case SYS_WAIT:{
-      printf("wait");
+      tid_t tid = *((int*)f->esp + 1);
+      f->eax = process_wait(tid);
       break;
     }
     case SYS_CREATE:{
-      printf("create");
-      char* file = *((int*)f->esp + 1);
+      char* file = (char*)*((int*)f->esp + 1);
+      check_valid_ptr(file);
       unsigned initial_size = *((unsigned*)f->esp + 2);
       f->eax = filesys_create (file, initial_size);
       break;
 
     }
     case SYS_REMOVE:{
-      printf("remove");
-      char* filepath = *((int*)f->esp + 1);
+      char* filepath = (char*)*((int*)f->esp + 1);
+      check_valid_ptr(filepath);
       lock_acquire(&syscall_lock);
       f->eax = filesys_remove(filepath);
       lock_release(&syscall_lock);

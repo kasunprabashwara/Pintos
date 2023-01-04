@@ -96,7 +96,7 @@ struct child
     tid_t tid;                          /* Thread identifier. */
     int exit_status;                    /* Exit status. */
     struct list_elem child_elem;              /* List element. */
-    bool wait;                          /* Waited or not. */
+    bool waited_once;                          /* Waited or not. */
     struct semaphore sema;               /* Semaphore for waiting. */
   };
 
@@ -109,8 +109,6 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-    struct list fd_list;
-    unsigned next_fd_num;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -124,7 +122,11 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
     struct list children;               /* List of children. */
     struct thread* parent;              /* Parent thread. */
+    struct list_elem child_elem;        /* List element for children list of the parent thread */
     struct semaphore sema;              /* Semaphore for waiting. */
+    int exit_status;                    /* Exit status. */
+    struct list fd_list;
+    unsigned next_fd_num;
   };
 
 /* If false (default), use round-robin scheduler.

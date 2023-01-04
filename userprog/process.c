@@ -99,6 +99,7 @@ start_process (void *file_name_)
     if_.esp-=4;
     *(int*)if_.esp=0;
     thread_current()->parent->child_load_success=true;
+    sema_up(&thread_current()->parent->sema);
   }
   palloc_free_page (duplicate_fn);
   /* Start the user process by simulating a return from an
