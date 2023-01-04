@@ -190,8 +190,8 @@ thread_create (const char *name, int priority,
   temp_child->exit_status=NULL;
   temp_child->waited_once=false; /* Set temp child's waited to false. */
   temp_child->is_alive=true; 
-  temp_child->sema=t->sema;  /* Set temp child's semaphore. */
-  t->child_elem=temp_child->child_elem;  /* Set the child element of parents child list */
+  temp_child->sema=&(t->sema);  /* Set temp child's semaphore. */
+  t->child_elem=&temp_child->child_elem;  /* Set the child element of parents child list */
   list_push_back(&t->parent->children, &temp_child->child_elem);  /* Add to parent's children list. */
   
   /* Stack frame for kernel_thread(). */
@@ -303,15 +303,20 @@ thread_exit (void)
   intr_disable ();
   struct thread* cur=thread_current();
   printf ("%s: exit(%d)\n",cur->name, cur->exit_status);
-  struct child* child=list_entry(&(cur->child_elem), struct child, child_elem);
+  struct child* child=list_entry(cur->child_elem, struct child, child_elem);
   child->exit_status = cur->exit_status;
+  child->is_alive = false;
+  // free all elements in child list
+  while (!list_empty (&cur->children)){
+      struct list_elem *e = list_pop_front (&cur->children);
+      struct child *c = list_entry (e, struct child, child_elem);
+      free(c);
+    }
   if(cur->parent!=NULL){
-        if(cur->parent->waiting_for==cur->tid){
-          sema_up(&cur->parent->sema);
-        }
-        list_remove(&cur->child_elem);
-        free(child);
-      }
+    if(cur->parent->waiting_for==cur->tid){
+      sema_up(&cur->parent->sema);
+    }
+  }
   list_remove (&cur->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();

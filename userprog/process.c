@@ -75,7 +75,7 @@ start_process (void *file_name_)
     char* token;
     char* save_ptr;
     int argc=0;
-    char* argv[20];
+    char* argv[100];
     for(token=strtok_r(file_name," ",&save_ptr);token!=NULL;token=strtok_r(NULL," ",&save_ptr)){
       argv[argc]=token;
       argc++;

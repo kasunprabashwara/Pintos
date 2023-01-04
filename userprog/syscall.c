@@ -140,7 +140,7 @@ syscall_handler(struct intr_frame* f){
           *((uint8_t *) buffer++) = input_getc ();
           i++;
         }
-        return size;
+        f->eax= size;
       }
       else {
         struct thread *current_thread = thread_current ();
@@ -156,6 +156,7 @@ syscall_handler(struct intr_frame* f){
         }             
 
       }
+      
       break;
     }
     
@@ -180,13 +181,12 @@ syscall_handler(struct intr_frame* f){
             struct fd_t *fdir = list_entry (e, struct fd_t, elem);
             if (fdir->num == fd){
                 if (!fdir->is_dir)
-                  return file_write ((struct file *) fdir->ptr, buffer, size);
+                  f->eax= file_write ((struct file *) fdir->ptr, buffer, size);
                 else
-                  return -1;
+                  f->eax= -1;
             }
-            return -1;
+            f->eax= -1;
         }
-
       }
       break;
     }
