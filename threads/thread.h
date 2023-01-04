@@ -95,8 +95,9 @@ struct child
   {
     tid_t tid;                          /* Thread identifier. */
     int exit_status;                    /* Exit status. */
-    struct list_elem child_elem;              /* List element. */
+    bool is_alive;
     bool waited_once;                          /* Waited or not. */
+    struct list_elem child_elem;              /* List element. */
     struct semaphore sema;               /* Semaphore for waiting. */
   };
 
@@ -125,6 +126,7 @@ struct thread
     struct list_elem child_elem;        /* List element for children list of the parent thread */
     struct semaphore sema;              /* Semaphore for waiting. */
     int exit_status;                    /* Exit status. */
+    tid_t waiting_for;
     struct list fd_list;
     unsigned next_fd_num;
   };

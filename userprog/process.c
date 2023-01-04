@@ -124,10 +124,32 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(true){
-    thread_yield();
+  printf("called wait for %d",child_tid);
+  struct thread* cur=thread_current();
+  struct list_elem* e;
+  struct child* child;
+  bool is_child=false;
+  // iterating through the child list to find the matching child
+  for (e = list_begin (&cur->children); e != list_end (&cur->children);e = list_next (e)){
+          child = list_entry (e, struct child, child_elem);
+          if(child->tid==cur->tid){
+            is_child=true;
+            break;
+          }
+        }
+  if(!is_child){
+    return -1;
   }
-  return -1;
+  if(child->waited_once){
+    return -1;
+  }
+  if(child->is_alive==false){
+    return child->exit_status;
+  }
+  cur->waiting_for=child_tid;
+  sema_up(&child->sema);
+  sema_down(&cur->sema);
+  return child->exit_status;
 }
 
 /* Free the current process's resources. */

@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -33,8 +34,6 @@ check_valid_ptr(void* ptr){
 void
 thread_force_exit(void){
   thread_current()->exit_status = -1;
-  struct child* child=list_entry(&(thread_current()->child_elem), struct child, child_elem);
-  child->exit_status = -1;
   thread_exit();
 }
 void
@@ -57,10 +56,6 @@ syscall_handler(struct intr_frame* f){
       // free the thread's resources(iterate through the lists and free them)
       int status = (int)(*((int*)f->esp + 1));
       thread_current()->exit_status = status;
-      struct child* child=list_entry(&(thread_current()->child_elem), struct child, child_elem);
-      child->exit_status = status;
-      list_remove(&thread_current()->child_elem);
-      free(child);
       thread_exit();
       break;
     }
@@ -103,7 +98,7 @@ syscall_handler(struct intr_frame* f){
       char* file = *((int*)f->esp + 1);
       struct thread *temp_thread = thread_current ();
       struct fd_t *fd = malloc (sizeof (struct fd_t));
-        if (filesys_open (file, &fd->ptr, &fd->is_dir)) {
+        if (filesys_open (file)) {
           fd->num = temp_thread->next_fd_num++;
           list_push_back (&temp_thread->fd_list, &fd->elem);
           f->eax = fd->num;
@@ -161,7 +156,6 @@ syscall_handler(struct intr_frame* f){
         }             
 
       }
-      
       break;
     }
     
@@ -182,23 +176,18 @@ syscall_handler(struct intr_frame* f){
       else {
         struct thread *cur = thread_current ();
         struct list_elem *e;
-        for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e))
-          {
+        for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
             struct fd_t *fdir = list_entry (e, struct fd_t, elem);
-            if (fdir->num == fd)
-              {
+            if (fdir->num == fd){
                 if (!fdir->is_dir)
                   return file_write ((struct file *) fdir->ptr, buffer, size);
                 else
                   return -1;
+            }
+            return -1;
         }
-      return -1;
-    }
 
       }
-        
-      
-      printf("write");
       break;
     }
     case SYS_SEEK:{
