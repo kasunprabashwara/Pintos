@@ -183,12 +183,14 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  sema_init (&t->sema, 0);    /* Initialize semaphore. */
   t->parent = thread_current ();  /* Initialize parent. */
   struct child* temp_child=malloc(sizeof(struct child));  /* Initialize temp child. */
   temp_child->tid=t->tid;   /* Set temp child's tid. */
+  temp_child->exit_status=NULL;
+  temp_child->waited_once=false; /* Set temp child's waited to false. */
   temp_child->sema=t->sema;  /* Set temp child's semaphore. */
-  list_insert(&t->parent->children, &temp_child->child_elem);  /* Add to parent's children list. */
+  t->child_elem=temp_child->child_elem;  /* Set the child element of parents child list */
+  list_push_back(&t->parent->children, &temp_child->child_elem);  /* Add to parent's children list. */
   
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -469,8 +471,11 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->child_load_success = false;
   t->magic = THREAD_MAGIC;
+  sema_init (&t->sema, 0);    /* Initialize semaphore. */
   list_init(&t->children);
+  list_init(&t->fd_list);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
