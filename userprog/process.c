@@ -124,7 +124,6 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  printf("called wait for %d",child_tid);
   struct thread* cur=thread_current();
   struct list_elem* e;
   struct child* child;
@@ -132,7 +131,7 @@ process_wait (tid_t child_tid UNUSED)
   // iterating through the child list to find the matching child
   for (e = list_begin (&cur->children); e != list_end (&cur->children);e = list_next (e)){
           child = list_entry (e, struct child, child_elem);
-          if(child->tid==cur->tid){
+          if(child->tid==child_tid){
             is_child=true;
             break;
           }
@@ -147,8 +146,9 @@ process_wait (tid_t child_tid UNUSED)
     return child->exit_status;
   }
   cur->waiting_for=child_tid;
-  sema_up(&child->sema);
+  sema_up(child->sema);
   sema_down(&cur->sema);
+  child->waited_once=true;
   return child->exit_status;
 }
 
