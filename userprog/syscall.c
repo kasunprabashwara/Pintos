@@ -5,8 +5,10 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "pagedir.h"
+#include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
+struct lock syscall_lock;
 
 void  
 check_valid_ptr(void* ptr){
@@ -31,6 +33,8 @@ syscall_init (void)
 
 static void
 syscall_handler(struct intr_frame* f){
+  lock_init(&syscall_lock);
+
   switch(*(int*)f->esp){
     case SYS_HALT:{
       printf("halt");
@@ -69,24 +73,75 @@ syscall_handler(struct intr_frame* f){
     case SYS_REMOVE:{
       printf("remove");
       char* filepath = *((int*)f->esp + 1);
+      lock_acquire(&syscall_lock);
       f->eax = filesys_remove(filepath);
+      lock_release(&syscall_lock);
       break;
     }
     case SYS_OPEN:{
       printf("open");
-      struct thread *cur = thread_current ();
+      char* file = *((int*)f->esp + 1);
+      struct thread *temp_thread = thread_current ();
       struct fd_t *fd = malloc (sizeof (struct fd_t));
-      
+        if (filesys_open (file, &fd->ptr, &fd->is_dir)) {
+          fd->num = temp_thread->next_fd_num++;
+          list_push_back (&temp_thread->fd_list, &fd->elem);
+          f->eax = fd->num;
+        }
+        else {
+          free (fd);
+          f->eax = -1;
+        }
       break;
     }
 
     case SYS_FILESIZE:{
       printf("filesize");
+      int fd = *((int*)f->esp + 1);
+      struct thread *current_thread = thread_current ();
+      struct list_elem *e;
+      for (e = list_begin (&current_thread->fd_list); e != list_end (&current_thread->fd_list); e = list_next (e)) {
+        struct fd_t *fd = list_entry (e, struct fd_t, elem);
+        if (fd->num == fd){
+          if (!fd->is_dir)
+            f->eax = file_length ((struct file *) fd->ptr);
+          else
+            f->eax = -1;
+        }
+      }
+      f->eax -1;
       break;
     }
 
     case SYS_READ:{
       printf("read");
+      int fd = *((int*)f->esp + 1);
+      void* buffer = (void*)(*((int*)f->esp + 2));
+      unsigned size = *((unsigned*)f->esp + 3);
+
+      if (fd == 0){
+        unsigned i;
+        while ( i < size) {
+          *((uint8_t *) buffer++) = input_getc ();
+          i++;
+        }
+        return size;
+      }
+      else {
+        struct thread *current_thread = thread_current ();
+        struct list_elem *e;
+        for (e = list_begin (&current_thread->fd_list); e != list_end (&current_thread->fd_list); e = list_next (e)) {
+          struct fd_t *fdir = list_entry (e, struct fd_t, elem);
+          if (fdir->num == fd){
+            if (!fdir->is_dir)
+              f->eax = file_read ((struct file *) fdir->ptr, buffer, size);
+            else
+              f->eax = -1;
+          }
+        }             
+
+      }
+      
       break;
     }
     
@@ -104,6 +159,25 @@ syscall_handler(struct intr_frame* f){
         f->eax=size;
         break;
       }
+      else {
+        struct thread *cur = thread_current ();
+        struct list_elem *e;
+        for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e))
+          {
+            struct fd_t *fdir = list_entry (e, struct fd_t, elem);
+            if (fdir->num == fd)
+              {
+                if (!fdir->is_dir)
+                  return file_write ((struct file *) fdir->ptr, buffer, size);
+                else
+                  return -1;
+        }
+      return -1;
+    }
+
+      }
+        
+      
       printf("write");
       break;
     }
