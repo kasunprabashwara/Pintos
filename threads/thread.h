@@ -95,9 +95,10 @@ struct child
   {
     tid_t tid;                          /* Thread identifier. */
     int exit_status;                    /* Exit status. */
-    struct list_elem child_elem;              /* List element. */
+    bool is_alive;
     bool waited_once;                          /* Waited or not. */
-    struct semaphore sema;               /* Semaphore for waiting. */
+    struct list_elem child_elem;              /* List element. */
+    struct semaphore* sema;               /* pointer for childs sema */
   };
 
 struct thread
@@ -122,9 +123,10 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
     struct list children;               /* List of children. */
     struct thread* parent;              /* Parent thread. */
-    struct list_elem child_elem;        /* List element for children list of the parent thread */
+    struct list_elem* child_elem;        /* List element for children list of the parent thread */
     struct semaphore sema;              /* Semaphore for waiting. */
     int exit_status;                    /* Exit status. */
+    tid_t waiting_for;
     struct list fd_list;
     unsigned next_fd_num;
   };

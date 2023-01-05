@@ -75,7 +75,7 @@ start_process (void *file_name_)
     char* token;
     char* save_ptr;
     int argc=0;
-    char* argv[20];
+    char* argv[100];
     for(token=strtok_r(file_name," ",&save_ptr);token!=NULL;token=strtok_r(NULL," ",&save_ptr)){
       argv[argc]=token;
       argc++;
@@ -124,10 +124,33 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(true){
-    thread_yield();
+  struct thread* cur=thread_current();
+  struct list_elem* e;
+  struct child* child;
+  bool is_child=false;
+  // iterating through the child list to find the matching child
+  for (e = list_begin (&cur->children); e != list_end (&cur->children);e = list_next (e)){
+          child = list_entry (e, struct child, child_elem);
+          if(child->tid==child_tid){
+            is_child=true;
+            break;
+          }
+        }
+  if(!is_child){
+    return -1;
   }
-  return -1;
+  if(child->waited_once){
+    return -1;
+  }
+  if(child->is_alive==false){
+    return child->exit_status;
+  }
+  cur->waiting_for=child_tid;
+  sema_up(child->sema);
+  sema_down(&cur->sema);
+  child->waited_once=true;
+  // printf("waited once for %d",child->waited_once);
+  return child->exit_status;
 }
 
 /* Free the current process's resources. */

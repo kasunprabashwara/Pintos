@@ -97,6 +97,7 @@ thread_init (void)
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
+  initial_thread->parent=NULL;
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 }
@@ -188,8 +189,9 @@ thread_create (const char *name, int priority,
   temp_child->tid=t->tid;   /* Set temp child's tid. */
   temp_child->exit_status=NULL;
   temp_child->waited_once=false; /* Set temp child's waited to false. */
-  temp_child->sema=t->sema;  /* Set temp child's semaphore. */
-  t->child_elem=temp_child->child_elem;  /* Set the child element of parents child list */
+  temp_child->is_alive=true; 
+  temp_child->sema=&(t->sema);  /* Set temp child's semaphore. */
+  t->child_elem=&temp_child->child_elem;  /* Set the child element of parents child list */
   list_push_back(&t->parent->children, &temp_child->child_elem);  /* Add to parent's children list. */
   
   /* Stack frame for kernel_thread(). */
@@ -299,7 +301,23 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&thread_current()->allelem);
+  struct thread* cur=thread_current();
+  printf ("%s: exit(%d)\n",cur->name, cur->exit_status);
+  struct child* child=list_entry(cur->child_elem, struct child, child_elem);
+  child->exit_status = cur->exit_status;
+  child->is_alive = false;
+  // free all elements in child list
+  while (!list_empty (&cur->children)){
+      struct list_elem *e = list_pop_front (&cur->children);
+      struct child *c = list_entry (e, struct child, child_elem);
+      free(c);
+    }
+  if(cur->parent!=NULL){
+    if(cur->parent->waiting_for==cur->tid){
+      sema_up(&cur->parent->sema);
+    }
+  }
+  list_remove (&cur->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -473,6 +491,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->child_load_success = false;
   t->magic = THREAD_MAGIC;
+  t->waiting_for = -1;
   sema_init (&t->sema, 0);    /* Initialize semaphore. */
   list_init(&t->children);
   list_init(&t->fd_list);
