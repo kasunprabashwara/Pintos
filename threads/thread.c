@@ -494,6 +494,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->waiting_for = -1;
   sema_init (&t->sema, 0);    /* Initialize semaphore. */
   list_init(&t->children);
+
+  list_init (&t->fd_list); 
+  t->next_fd_num = 2;
+
   list_init(&t->fd_list);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
