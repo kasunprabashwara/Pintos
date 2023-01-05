@@ -72,6 +72,7 @@ syscall_handler(struct intr_frame* f){
       // sema_down(&thread_current()->sema); // wait for child to load
       if(thread_current()->child_load_success){
         f->eax = tid;
+        thread_current()->child_load_success = false;
       }
       else{
         f->eax = -1;
@@ -106,17 +107,17 @@ syscall_handler(struct intr_frame* f){
       struct thread *temp_thread = thread_current ();
       struct fd_t *fdes = malloc (sizeof (struct fd_t));
       lock_acquire(&file_system_lock);
-      if (filesys_open (file)) {
+      struct file* file_ptr = filesys_open (file);
+      if (file_ptr != NULL) {
         fdes->num = temp_thread->next_fd_num++;
+        fdes->ptr = file_ptr;
         list_push_back (&temp_thread->fd_list, &fdes->elem);
         f->eax = fdes->num;
         lock_release(&file_system_lock);
         break;
       }
-      else {
-        free (fdes);
-        f->eax = -1;
-      }
+      free (fdes);
+      f->eax = -1;
       lock_release(&file_system_lock);
       break;
     }
@@ -125,16 +126,19 @@ syscall_handler(struct intr_frame* f){
       int fd = *((int*)f->esp + 1);
       struct thread *current_thread = thread_current ();
       struct list_elem *e;
+      bool is_found = false;
       for (e = list_begin (&current_thread->fd_list); e != list_end (&current_thread->fd_list); e = list_next (e)) {
         struct fd_t *fd = list_entry (e, struct fd_t, elem);
-        if (!fd->is_dir && fd->num == fd){
+        if (fd->num == fd){
+          is_found = true;
           lock_acquire(&file_system_lock);
           f->eax = file_length ((struct file *) fd->ptr);
           lock_release(&file_system_lock);
           break;
         }
       }
-      f->eax -1;
+      if(!is_found)
+        f->eax = -1;
       break;
     }
 
@@ -157,16 +161,20 @@ syscall_handler(struct intr_frame* f){
       }
       struct thread* cur = thread_current ();
       struct list_elem *e;
+      struct fd_t *fdes;
+      bool is_found = false;
       for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)) {
-        struct fd_t *fdes = list_entry (e, struct fd_t, elem);
-        if (!fdes->is_dir && fdes->num == fd){
+        fdes = list_entry (e, struct fd_t, elem);
+        if (fdes->num == fd){
+          is_found = true;
           lock_acquire(&file_system_lock);
           f->eax = file_read ((struct file *) fdes->ptr, buffer, size);
           lock_release(&file_system_lock);
           break;
         }  
       }
-      f->eax = -1;           
+      if(!is_found)
+        f->eax = -1;        
       break;
     }
     
@@ -186,16 +194,20 @@ syscall_handler(struct intr_frame* f){
       }
       struct thread *cur = thread_current ();
       struct list_elem *e;
+      struct fd_t* fdes;
+      bool is_found = false;
       for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
-        struct fd_t *fdes = list_entry (e, struct fd_t, elem);
-        if (!fdes->is_dir && fdes->num == fd){
+        fdes = list_entry (e, struct fd_t, elem);
+        if (fdes->num == fd){
+          is_found = true;
           lock_acquire(&file_system_lock);
-          f->eax = file_write ((struct file *) fdes->ptr, buffer, size);
+          f->eax = file_write ((struct file*) fdes->ptr, buffer, size);
           lock_release(&file_system_lock);
           break;
         }
       }
-      f->eax= -1;
+      if(!is_found)
+        f->eax = -1;
       break;
     }
     case SYS_SEEK:{
@@ -203,57 +215,63 @@ syscall_handler(struct intr_frame* f){
       unsigned position = *((unsigned*)f->esp + 2);
       struct thread *cur = thread_current ();
       struct list_elem *e;
+      struct fd_t* fdes;
+      bool is_found = false;
       for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
-        struct fd_t *fdes = list_entry (e, struct fd_t, elem);
-          if (!fdes->is_dir && fdes->num == fd){
-              lock_acquire(&file_system_lock);
-              file_seek ((struct file *) fdes->ptr, position);
-              lock_release(&file_system_lock);
-              f->eax = 0;
-              break;
-          }
+        fdes = list_entry (e, struct fd_t, elem);
+        if (fdes->num == fd){
+          is_found = true;
+          lock_acquire(&file_system_lock);
+          file_seek ((struct file *) fdes->ptr, position);
+          lock_release(&file_system_lock);
+          f->eax = 0;
+          break;
+        }
       }
-      f->eax = -1;
+      if(!is_found)
+        f->eax = -1;
       break;
     }
     case SYS_TELL:{
       int fd = *((int*)f->esp + 1);
       struct thread *cur = thread_current ();
       struct list_elem *e;
+      bool is_found = false;
       for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
         struct fd_t *fdes = list_entry (e, struct fd_t, elem);
-        if (!fdes->is_dir && fdes->num == fd){
+        if (fdes->num == fd){
+          is_found = true;
           lock_acquire(&file_system_lock);
           f-> eax = file_tell ((struct file *) fdes->ptr);
           lock_release(&file_system_lock);
           break;
         }
       }
-      f-> eax = -1;
+      if(!is_found)
+        f-> eax = -1;
       break;
     }
     case SYS_CLOSE:{
       int fd = *((int*)f->esp + 1);
       struct thread *cur = thread_current ();
       struct list_elem *e;
+      struct fd_t* fdes;
+      bool is_found = false;
       for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
-          struct fd_t *fdes = list_entry (e, struct fd_t, elem);
-          if (fdes->num == fd){
-              if (fdes->is_dir){
-                dir_close ((struct dir *) fdes->ptr);
-              }
-              else{
-                lock_acquire(&file_system_lock);
-                file_close ((struct file *) fdes->ptr);
-                lock_release(&file_system_lock);
-              }
-              list_remove (e);
-              free (fdes);
-              f-> eax = 0;
-              break;
-            }
+        fdes = list_entry (e, struct fd_t, elem);
+        if (fdes->num == fd){  
+          is_found = true;
+          lock_acquire(&file_system_lock);
+          file_close ((struct file *) fdes->ptr);
+          lock_release(&file_system_lock);
+          list_remove (e);
+          free (fdes);
+          f-> eax = 0;
+          break;
+        }
       }
-      f-> eax = -1;
+      if(!is_found)
+        f-> eax = -1;
       break;
     }
   }
