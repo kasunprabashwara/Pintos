@@ -318,7 +318,7 @@ thread_exit (void)
     }
   if(cur->parent!=NULL){
     if(cur->parent->waiting_for==cur->tid){
-      printf("\nsemaphore up for parent %d\n",cur->parent->tid);
+      // printf("\nsemaphore up for parent %d\n",cur->parent->tid);
       sema_up(&cur->parent->sema);
     }
   }

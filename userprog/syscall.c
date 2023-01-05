@@ -40,11 +40,6 @@ check_valid_ptr(void* ptr,struct intr_frame* f){
   }
 }
 void
-thread_force_exit(void){
-  thread_current()->exit_status = -1;
-  thread_exit();
-}
-void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
@@ -66,7 +61,7 @@ syscall_handler(struct intr_frame* f){
     case SYS_EXIT:{
       // free the thread's resources(iterate through the lists and free them)
       int status = (int)(*((int*)f->esp + 1));
-      printf("\nexiting -%d\n",status);
+      // printf("\nexiting -%d\n",status);
       thread_current()->exit_status = status;
       thread_exit();
       break;
@@ -106,7 +101,6 @@ syscall_handler(struct intr_frame* f){
       break;
     }
     case SYS_OPEN:{
-      printf("open");
       char* file = *((int*)f->esp + 1);
       struct thread *temp_thread = thread_current ();
       struct fd_t *fdes = malloc (sizeof (struct fd_t));
@@ -123,7 +117,6 @@ syscall_handler(struct intr_frame* f){
     }
 
     case SYS_FILESIZE:{
-      printf("filesize");
       int fd = *((int*)f->esp + 1);
       struct thread *current_thread = thread_current ();
       struct list_elem *e;
@@ -141,7 +134,6 @@ syscall_handler(struct intr_frame* f){
     }
 
     case SYS_READ:{
-      printf("read");
       int fd = *((int*)f->esp + 1);
       void* buffer = (void*)(*((int*)f->esp + 2));
       unsigned size = *((unsigned*)f->esp + 3);
