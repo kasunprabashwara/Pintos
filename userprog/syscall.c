@@ -54,8 +54,7 @@ syscall_handler(struct intr_frame* f){
   // check_valid_ptr(f->esp+3,f);
   switch(*(int*)f->esp){
     case SYS_HALT:{
-      printf("halt");
-      
+      shutdown_power_off();
       break;
     }
     case SYS_EXIT:{
@@ -107,16 +106,17 @@ syscall_handler(struct intr_frame* f){
       struct thread *temp_thread = thread_current ();
       struct fd_t *fdes = malloc (sizeof (struct fd_t));
       lock_acquire(&file_system_lock);
-        if (filesys_open (file)) {
-          fdes->num = temp_thread->next_fd_num++;
-          list_push_back (&temp_thread->fd_list, &fdes->elem);
-          f->eax = fdes->num;
-          break;
-        }
-        else {
-          free (fdes);
-          f->eax = -1;
-        }
+      if (filesys_open (file)) {
+        fdes->num = temp_thread->next_fd_num++;
+        list_push_back (&temp_thread->fd_list, &fdes->elem);
+        f->eax = fdes->num;
+        lock_release(&file_system_lock);
+        break;
+      }
+      else {
+        free (fdes);
+        f->eax = -1;
+      }
       lock_release(&file_system_lock);
       break;
     }

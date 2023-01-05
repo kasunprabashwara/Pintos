@@ -147,16 +147,14 @@ process_wait (tid_t child_tid UNUSED)
     // printf("\nalready waited once");
     return -1;
   }
+  child->waited_once=true;
   if(child->is_alive==false){
     return child->exit_status;
   }
   cur->waiting_for=child_tid;
   // printf("\nsemaphore up child %d\n",child_tid);
   // sema_up(child->sema);
-  // printf("\nsemaphore down for parent %d\n",cur->tid);
   sema_down(&cur->sema);
-  // printf("\nwaited once for %d\n",child->waited_once);
-  child->waited_once=true;
   return child->exit_status;
 }
 
