@@ -17,7 +17,8 @@
     "vaddr.h": "c",
     "pagedir.h": "c",
     "malloc.h": "c",
-    "main.h": "c"
+    "main.h": "c",
+    "filesys.h": "c"
   },
   "C_Cpp.errorSquiggles": "Enabled"
 }

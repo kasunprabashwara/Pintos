@@ -285,7 +285,11 @@ thread_tid (void)
 {
   return thread_current ()->tid;
 }
-
+void
+thread_force_exit(void){
+  thread_current()->exit_status = -1;
+  thread_exit();
+}
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
@@ -314,6 +318,7 @@ thread_exit (void)
     }
   if(cur->parent!=NULL){
     if(cur->parent->waiting_for==cur->tid){
+      printf("\nsemaphore up for parent %d\n",cur->parent->tid);
       sema_up(&cur->parent->sema);
     }
   }
@@ -492,6 +497,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->child_load_success = false;
   t->magic = THREAD_MAGIC;
   t->waiting_for = -1;
+  t->next_fd_num=2;
   sema_init (&t->sema, 0);    /* Initialize semaphore. */
   list_init(&t->children);
   list_init(&t->fd_list);

@@ -42,6 +42,7 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   file_name=strtok_r((char*)file_name," ",&file_name);
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  sema_down(&thread_current()->sema); // wait for child to load
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -68,8 +69,9 @@ start_process (void *file_name_)
   success = load (duplicate_fn, &if_.eip, &if_.esp);
   /* If load failed, quit. */
   if (!success){
-    thread_current()->parent->child_load_success=false;  
-    thread_exit ();
+    thread_current()->parent->child_load_success=false;
+    sema_up(&thread_current()->parent->sema);
+    thread_force_exit ();
   }
   else{
     char* token;
@@ -98,6 +100,7 @@ start_process (void *file_name_)
     *(int*)if_.esp=argc;
     if_.esp-=4;
     *(int*)if_.esp=0;
+    // printf("\n thread loaded with program %s",duplicate_fn);
     thread_current()->parent->child_load_success=true;
     sema_up(&thread_current()->parent->sema);
   }
@@ -137,19 +140,23 @@ process_wait (tid_t child_tid UNUSED)
           }
         }
   if(!is_child){
+    // printf("\nnot a child ");
     return -1;
   }
   if(child->waited_once){
+    // printf("\nalready waited once");
     return -1;
   }
   if(child->is_alive==false){
     return child->exit_status;
   }
   cur->waiting_for=child_tid;
-  sema_up(child->sema);
+  // printf("\nsemaphore up child %d\n",child_tid);
+  // sema_up(child->sema);
+  // printf("\nsemaphore down for parent %d\n",cur->tid);
   sema_down(&cur->sema);
+  // printf("\nwaited once for %d\n",child->waited_once);
   child->waited_once=true;
-  // printf("waited once for %d",child->waited_once);
   return child->exit_status;
 }
 
