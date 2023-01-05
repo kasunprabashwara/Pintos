@@ -75,7 +75,7 @@ syscall_handler(struct intr_frame* f){
       char* cmd_line = (char*)(*((int*)f->esp + 1));
       // check_valid_ptr(cmd_line,f);
       tid_t tid = process_execute(cmd_line);
-      sema_down(&thread_current()->sema); // wait for child to load
+      // sema_down(&thread_current()->sema); // wait for child to load
       if(thread_current()->child_load_success){
         f->eax = tid;
       }

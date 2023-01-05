@@ -141,7 +141,7 @@ page_fault (struct intr_frame *f)
   intr_enable ();
 
   /* Count page faults. */
-  if(not_present){
+  if(!not_present){
       thread_force_exit();
   }
   page_fault_cnt++;
