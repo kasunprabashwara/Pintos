@@ -142,6 +142,7 @@ page_fault (struct intr_frame *f)
 
   /* Count page faults. */
   if(!not_present){
+      // printf("page fault called\n");
       thread_force_exit();
   }
   page_fault_cnt++;
