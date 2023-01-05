@@ -16,7 +16,8 @@
     "syscall-nr.h": "c",
     "vaddr.h": "c",
     "pagedir.h": "c",
-    "malloc.h": "c"
+    "malloc.h": "c",
+    "main.h": "c"
   },
   "C_Cpp.errorSquiggles": "Enabled"
 }

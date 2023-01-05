@@ -149,6 +149,7 @@ process_wait (tid_t child_tid UNUSED)
   sema_up(child->sema);
   sema_down(&cur->sema);
   child->waited_once=true;
+  printf("waited once for %d",child->waited_once);
   return child->exit_status;
 }
 

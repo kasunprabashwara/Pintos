@@ -12,22 +12,28 @@
 #include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
-static void check_valid_ptr(void* ptr);
-static void thread_force_exit(void);
+static void check_valid_ptr(void* ptr,struct intr_frame* f);
 
 struct lock syscall_lock;
 
 void  
-check_valid_ptr(void* ptr){
+check_valid_ptr(void* ptr,struct intr_frame* f){
+  // printf("check_valid_ptr");
   if(ptr==NULL){
+    // printf("\nnull detected\n");
+    f->eax = -1;
     thread_force_exit();
   }
   // check to if the pointer is in the user virtual address space
   if(!is_user_vaddr(ptr) || ptr<0x08048000){
+    // printf("\nnot in user virtual address space\n");
+    f->eax = -1;
     thread_force_exit();
   }
   // check to see if the pointer is mapped to a page
   if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL){
+    // printf("\nnot mapped to a page\n");
+    f->eax = -1;
     thread_force_exit();
   }
 }
@@ -45,7 +51,10 @@ syscall_init (void)
 static void
 syscall_handler(struct intr_frame* f){
   lock_init(&syscall_lock);
-
+  // check_valid_ptr(f->esp,f);
+  // check_valid_ptr(f->esp+1,f);
+  // check_valid_ptr(f->esp+2,f);
+  // check_valid_ptr(f->esp+3,f);
   switch(*(int*)f->esp){
     case SYS_HALT:{
       printf("halt");
@@ -55,13 +64,14 @@ syscall_handler(struct intr_frame* f){
     case SYS_EXIT:{
       // free the thread's resources(iterate through the lists and free them)
       int status = (int)(*((int*)f->esp + 1));
+      printf("\nexiting -%d\n",status);
       thread_current()->exit_status = status;
       thread_exit();
       break;
     }
     case SYS_EXEC:{
       char* cmd_line = (char*)(*((int*)f->esp + 1));
-      check_valid_ptr(cmd_line);
+      // check_valid_ptr(cmd_line,f);
       tid_t tid = process_execute(cmd_line);
       sema_down(&thread_current()->sema); // wait for child to load
       if(thread_current()->child_load_success){
@@ -79,7 +89,7 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_CREATE:{
       char* file = (char*)*((int*)f->esp + 1);
-      check_valid_ptr(file);
+      // check_valid_ptr(file,f);
       unsigned initial_size = *((unsigned*)f->esp + 2);
       f->eax = filesys_create (file, initial_size);
       break;
@@ -87,7 +97,7 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_REMOVE:{
       char* filepath = (char*)*((int*)f->esp + 1);
-      check_valid_ptr(filepath);
+      // check_valid_ptr(filepath,f);
       lock_acquire(&syscall_lock);
       f->eax = filesys_remove(filepath);
       lock_release(&syscall_lock);
@@ -165,7 +175,7 @@ syscall_handler(struct intr_frame* f){
       void* buffer = (void*)(*((int*)f->esp + 2));
       unsigned size = *((unsigned*)f->esp + 3);
       //check to see if the buffer is valid
-      check_valid_ptr(buffer);
+      // check_valid_ptr(buffer,f);
       //run the syscall, a function of your own making
       //since this syscall returns a value, the return value should be stored in f->eax
       // f->eax = write(fd, buffer, size);
