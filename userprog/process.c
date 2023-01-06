@@ -100,7 +100,6 @@ start_process (void *file_name_)
     *(int*)if_.esp=argc;
     if_.esp-=4;
     *(int*)if_.esp=0;
-    // printf("\n thread loaded with program %s",duplicate_fn);
     thread_current()->parent->child_load_success=true;
     sema_up(&thread_current()->parent->sema);
   }
@@ -140,11 +139,9 @@ process_wait (tid_t child_tid UNUSED)
           }
         }
   if(!is_child){
-    // printf("\nnot a child ");
     return -1;
   }
   if(child->waited_once){
-    // printf("\nalready waited once");
     return -1;
   }
   child->waited_once=true;
@@ -152,8 +149,6 @@ process_wait (tid_t child_tid UNUSED)
     return child->exit_status;
   }
   cur->waiting_for=child_tid;
-  // printf("\nsemaphore up child %d\n",child_tid);
-  // sema_up(child->sema);
   sema_down(&cur->sema);
   return child->exit_status;
 }
@@ -374,12 +369,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-
   success = true;
+  file_deny_write(file);
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  thread_current()->file = file;
   return success;
 }
 

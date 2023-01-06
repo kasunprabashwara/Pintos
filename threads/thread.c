@@ -10,6 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
+#include "filesys/file.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #ifdef USERPROG
@@ -310,18 +311,26 @@ thread_exit (void)
   struct child* child=list_entry(cur->child_elem, struct child, child_elem);
   child->exit_status = cur->exit_status;
   child->is_alive = false;
-  // free all elements in child list
+  // free all elements in child list and fd list
+  struct list_elem *e;
+  struct child *c;
   while (!list_empty (&cur->children)){
-      struct list_elem *e = list_pop_front (&cur->children);
-      struct child *c = list_entry (e, struct child, child_elem);
+      e = list_pop_front (&cur->children);
+      c = list_entry (e, struct child, child_elem);
       free(c);
+    }
+  struct fd_t *d;
+  while (!list_empty (&cur->fd_list)){
+      e = list_pop_front (&cur->fd_list);
+      d = list_entry (e, struct fd_t, elem);
+      free(d);
     }
   if(cur->parent!=NULL){
     if(cur->parent->waiting_for==cur->tid){
-      // printf("\nsemaphore up for parent %d\n",cur->parent->tid);
       sema_up(&cur->parent->sema);
     }
   }
+  file_close(cur->file);
   list_remove (&cur->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();

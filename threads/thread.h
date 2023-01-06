@@ -127,7 +127,8 @@ struct thread
     struct semaphore sema;              /* Semaphore for waiting. */
     int exit_status;                    /* Exit status. */
     tid_t waiting_for;
-    struct list fd_list;
+    struct file* file;                /* pointer to the executable file of this thread */
+    struct list fd_list;              /* List of file descriptors. */
     unsigned next_fd_num;
   };
 

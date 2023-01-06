@@ -12,30 +12,24 @@
 #include "filesys/file.h"
 #include "filesys/directory.h"
 #include "devices/input.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
-static void check_valid_ptr(void* ptr,struct intr_frame* f);
+static void check_valid_ptr(void* ptr);
 
 struct lock file_system_lock;
 
 void  
-check_valid_ptr(void* ptr,struct intr_frame* f){
-  // printf("check_valid_ptr");
+check_valid_ptr(void* ptr){
   if(ptr==NULL){
-    // printf("\nnull detected\n");
-    f->eax = -1;
     thread_force_exit();
   }
   // check to if the pointer is in the user virtual address space
   if(!is_user_vaddr(ptr) || ptr<0x08048000){
-    // printf("\nnot in user virtual address space\n");
-    f->eax = -1;
     thread_force_exit();
   }
   // check to see if the pointer is mapped to a page
   if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL){
-    // printf("\nnot mapped to a page\n");
-    f->eax = -1;
     thread_force_exit();
   }
 }
@@ -48,28 +42,25 @@ syscall_init (void)
 
 static void
 syscall_handler(struct intr_frame* f){
-  // check_valid_ptr(f->esp,f);
-  // check_valid_ptr(f->esp+1,f);
-  // check_valid_ptr(f->esp+2,f);
-  // check_valid_ptr(f->esp+3,f);
+  check_valid_ptr((int*)f->esp);
+  check_valid_ptr((int*)f->esp+1);
+  check_valid_ptr((int*)f->esp+2);
+  check_valid_ptr((int*)f->esp+3);
   switch(*(int*)f->esp){
     case SYS_HALT:{
       shutdown_power_off();
       break;
     }
     case SYS_EXIT:{
-      // free the thread's resources(iterate through the lists and free them)
       int status = (int)(*((int*)f->esp + 1));
-      // printf("\nexiting -%d\n",status);
       thread_current()->exit_status = status;
       thread_exit();
       break;
     }
     case SYS_EXEC:{
       char* cmd_line = (char*)(*((int*)f->esp + 1));
-      // check_valid_ptr(cmd_line,f);
+      check_valid_ptr(cmd_line);
       tid_t tid = process_execute(cmd_line);
-      // sema_down(&thread_current()->sema); // wait for child to load
       if(thread_current()->child_load_success){
         f->eax = tid;
         thread_current()->child_load_success = false;
@@ -86,7 +77,7 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_CREATE:{
       char* file = (char*)*((int*)f->esp + 1);
-      // check_valid_ptr(file,f);
+      check_valid_ptr(file);
       unsigned initial_size = *((unsigned*)f->esp + 2);
       lock_acquire(&file_system_lock);
       f->eax = filesys_create (file, initial_size);
@@ -96,7 +87,7 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_REMOVE:{
       char* filepath = (char*)*((int*)f->esp + 1);
-      // check_valid_ptr(filepath,f);
+      check_valid_ptr(filepath);
       lock_acquire(&file_system_lock);
       f->eax = filesys_remove(filepath);
       lock_release(&file_system_lock);
@@ -104,6 +95,7 @@ syscall_handler(struct intr_frame* f){
     }
     case SYS_OPEN:{
       char* file = *((int*)f->esp + 1);
+      check_valid_ptr(file);
       struct thread *temp_thread = thread_current ();
       struct fd_t *fdes = malloc (sizeof (struct fd_t));
       lock_acquire(&file_system_lock);
@@ -116,10 +108,12 @@ syscall_handler(struct intr_frame* f){
         lock_release(&file_system_lock);
         break;
       }
+      else{
       free (fdes);
       f->eax = -1;
       lock_release(&file_system_lock);
       break;
+      }
     }
 
     case SYS_FILESIZE:{
@@ -127,12 +121,13 @@ syscall_handler(struct intr_frame* f){
       struct thread *current_thread = thread_current ();
       struct list_elem *e;
       bool is_found = false;
+      struct fd_t *fdir;
       for (e = list_begin (&current_thread->fd_list); e != list_end (&current_thread->fd_list); e = list_next (e)) {
-        struct fd_t *fd = list_entry (e, struct fd_t, elem);
-        if (fd->num == fd){
+        fdir = list_entry (e, struct fd_t, elem);
+        if (fdir->num == fd){
           is_found = true;
           lock_acquire(&file_system_lock);
-          f->eax = file_length ((struct file *) fd->ptr);
+          f->eax = file_length ((struct file *) fdir->ptr);
           lock_release(&file_system_lock);
           break;
         }
@@ -145,70 +140,64 @@ syscall_handler(struct intr_frame* f){
     case SYS_READ:{
       int fd = *((int*)f->esp + 1);
       void* buffer = (void*)(*((int*)f->esp + 2));
+      check_valid_ptr(buffer);
       unsigned size = *((unsigned*)f->esp + 3);
 
       if (fd == 0){
-        unsigned i;
         for(int i = 0; i < size; i++){
           *((uint8_t *) buffer+i) = input_getc ();
         }
-        // while ( i < size) {
-        //   *((uint8_t *) buffer++) = input_getc ();
-        //   i++;
-        // }
         f->eax= size;
         break;
       }
-      struct thread* cur = thread_current ();
-      struct list_elem *e;
-      struct fd_t *fdes;
-      bool is_found = false;
-      for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)) {
-        fdes = list_entry (e, struct fd_t, elem);
-        if (fdes->num == fd){
-          is_found = true;
-          lock_acquire(&file_system_lock);
-          f->eax = file_read ((struct file *) fdes->ptr, buffer, size);
-          lock_release(&file_system_lock);
-          break;
-        }  
+      else{
+        struct thread* cur = thread_current ();
+        struct list_elem *e;
+        struct fd_t *fdes;
+        bool is_found = false;
+        for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
+          fdes = list_entry (e, struct fd_t, elem);
+          if (fdes->num == fd){
+            is_found = true;
+            lock_acquire(&file_system_lock);
+            f->eax = file_read((struct file*) fdes->ptr, buffer, size);
+            lock_release(&file_system_lock);
+            break;
+          }
+        }
+        if(!is_found)
+          f->eax = -1;        
+        break;
       }
-      if(!is_found)
-        f->eax = -1;        
-      break;
     }
     
     case SYS_WRITE:{
       int fd = *((int*)f->esp + 1);
       void* buffer = (void*)(*((int*)f->esp + 2));
+      check_valid_ptr(buffer);
       unsigned size = *((unsigned*)f->esp + 3);
-      //check to see if the buffer is valid
-      // check_valid_ptr(buffer,f);
-      //run the syscall, a function of your own making
-      //since this syscall returns a value, the return value should be stored in f->eax
-      // f->eax = write(fd, buffer, size);
       if(fd==1){
         putbuf(buffer, size);
         f->eax=size;
         break;
       }
-      struct thread *cur = thread_current ();
-      struct list_elem *e;
-      struct fd_t* fdes;
-      bool is_found = false;
-      for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
-        fdes = list_entry (e, struct fd_t, elem);
-        if (fdes->num == fd){
-          is_found = true;
-          lock_acquire(&file_system_lock);
-          f->eax = file_write ((struct file*) fdes->ptr, buffer, size);
-          lock_release(&file_system_lock);
-          break;
+        struct thread *cur = thread_current ();
+        struct list_elem *e;
+        struct fd_t* fdes;
+        bool is_found = false;
+        for (e = list_begin (&cur->fd_list); e != list_end (&cur->fd_list); e = list_next (e)){
+          fdes = list_entry (e, struct fd_t, elem);
+          if (fdes->num == fd){
+            is_found = true;
+            lock_acquire(&file_system_lock);
+            f->eax = file_write ((struct file*) fdes->ptr, buffer, size);
+            lock_release(&file_system_lock);
+            break;
+          }
         }
-      }
-      if(!is_found)
-        f->eax = -1;
-      break;
+        if(!is_found)
+          f->eax = -1;
+        break;
     }
     case SYS_SEEK:{
       int fd = *((int*)f->esp + 1);
